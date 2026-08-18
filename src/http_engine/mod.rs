@@ -60,6 +60,7 @@ impl HttpServer {
     }
 
     // just for managing json request, in other cases it won't work
+    // TODO: soooner or later send a generic response
     async fn handle_stream(mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
         // init for the request
         let mut headers = [httparse::EMPTY_HEADER; 64];
@@ -82,6 +83,7 @@ impl HttpServer {
             }
 
             let body = &content[header_len..];
+            //TODO: do the mcp server call in here
         }
 
         Ok(())
