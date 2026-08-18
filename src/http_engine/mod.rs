@@ -84,10 +84,20 @@ impl HttpServer {
                 return Err(Box::new(HttpServerErrors::IncorrectContentTypeHeader));
             }
 
+            println!("correct headers");
+
             let body = &content[header_len..];
-            //TODO: do the mcp server call in here
             let body = HttpServer::parse_body_into_json(body)?;
-            McpServer::handle_response(body);
+
+            //TODO: do the mcp server call in here
+            match McpServer::handle_response(body).await {
+                Ok(payload) => {
+                    println!("{:?}", payload);
+                }
+                Err(err) => {
+                    println!("Error {:?}", err);
+                }
+            };
         }
 
         Ok(())
