@@ -1,4 +1,6 @@
+use corpo_metrics::CorpoMCP;
+
 #[async_std::main]
 async fn main() {
-    println!("Hello, world!");
+    CorpoMCP::init().await
 }
