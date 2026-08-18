@@ -6,6 +6,8 @@ use std::{error::Error, fmt::Display, format, io::Read, ptr::eq};
 use http::{Request as HttpRequest, Response as HttpResponse};
 use serde::{Deserialize, de};
 
+use crate::server::primitives::McpServer;
+
 const CONTENT_TYPE_RAW: &str = "Content-Type";
 const APPLICATION_JSON_RAW: &str = "application/json";
 
@@ -84,6 +86,8 @@ impl HttpServer {
 
             let body = &content[header_len..];
             //TODO: do the mcp server call in here
+            let body = HttpServer::parse_body_into_json(body)?;
+            McpServer::handle_response(body);
         }
 
         Ok(())
