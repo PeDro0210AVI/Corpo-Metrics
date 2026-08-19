@@ -1,6 +1,9 @@
 use std::{error::Error, fmt::Display};
 
-use async_std::{fs::File, io::ReadExt};
+use async_std::{
+    fs::{File, OpenOptions},
+    io::ReadExt,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -61,11 +64,18 @@ impl McpServer {
 
     async fn mcp_list() -> Result<McpJson, Box<dyn Error>> {
         // grabbing the tools_list json
-        let mut tools_raw_file = File::open("data/tools_list.json").await?;
+        let mut file = OpenOptions::new()
+            .create(true)
+            .read(true)
+            .write(true)
+            .truncate(true)
+            .open("data/tools_list.json")
+            .await?;
+
         let content = &mut String::new();
 
-        tools_raw_file.read_to_string(content);
-        println!("content is: {},", content);
+        file.read_to_string(content);
+        println!("content is: {}", content);
 
         let mut deserializer = serde_json::Deserializer::from_str(&content);
         let deserializer = serde_stacker::Deserializer::new(&mut deserializer);
