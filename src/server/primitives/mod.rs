@@ -14,7 +14,7 @@ const MCP_TOOLS_CALL_RAW: &str = "tools/call";
 pub struct McpServer;
 
 // JsonRPC response
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct McpJson {
     jsonrpc: String,
     id: Option<u32>,
@@ -64,18 +64,11 @@ impl McpServer {
 
     async fn mcp_list() -> Result<McpJson, Box<dyn Error>> {
         // grabbing the tools_list json
-        let mut file = OpenOptions::new()
-            .create(true)
-            .read(true)
-            .write(true)
-            .truncate(true)
-            .open("data/tools_list.json")
-            .await?;
+        let mut file = File::open("data/tools_list.json").await?;
 
         let content = &mut String::new();
 
-        file.read_to_string(content);
-        println!("content is: {}", content);
+        file.read_to_string(content).await?;
 
         let mut deserializer = serde_json::Deserializer::from_str(&content);
         let deserializer = serde_stacker::Deserializer::new(&mut deserializer);
