@@ -25,8 +25,8 @@ pub struct McpJson {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MCPCallparams {
-    name: String,
-    arguments: Value,
+    name: Option<String>,
+    arguments: Option<Value>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -103,7 +103,7 @@ impl McpServer {
 
         let mcp_params = json_rpc_request.params.unwrap();
 
-        let result: Result<McpPayload, McpServerError> = match mcp_params.name.as_str() {
+        let result: Result<McpPayload, McpServerError> = match mcp_params.name.unwrap().as_str() {
             "get_sales_metrics" => {
                 todo!()
             }

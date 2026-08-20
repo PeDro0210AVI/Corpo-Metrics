@@ -10,7 +10,7 @@ pub struct CorpoMCP;
 impl CorpoMCP {
     pub async fn init() -> Result<(), Box<dyn Error>> {
         //TODO: remove burn http
-        let server = HttpServer::new("127.0.0.1", 6450).await;
+        let server = HttpServer::new("127.0.0.1", 8080).await;
 
         println!("Started server");
 
