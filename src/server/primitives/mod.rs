@@ -19,8 +19,39 @@ pub struct McpJson {
     jsonrpc: String,
     id: Option<u32>,
     method: Option<String>,
-    params: Option<Value>,
+    params: Option<MCPCallparams>,
     result: Option<Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct MCPCallparams {
+    name: String,
+    arguments: Value,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum ResultType {
+    complete,
+    inputRequired,
+    task,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum ContentType {
+    text,
+    // just adding text for the moment
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ContentText {
+    r#type: ContentType,
+    text: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct McpPayload {
+    resultType: ResultType,
+    content: Vec<ContentText>,
 }
 
 #[derive(Debug)]
@@ -39,8 +70,8 @@ impl Error for McpServerError {}
 
 // wrapper
 impl McpServer {
-    pub async fn handle_response(request: Value) -> Result<McpJson, Box<dyn Error>> {
-        let json_rpc_request = serde_json::from_value::<McpJson>(request)?;
+    pub async fn handle_response(payload: Value) -> Result<McpJson, Box<dyn Error>> {
+        let json_rpc_request = serde_json::from_value::<McpJson>(payload)?;
 
         if let None = json_rpc_request.method {
             return Err(Box::new(McpServerError::NotMethodSupply));
@@ -58,13 +89,25 @@ impl McpServer {
         }
     }
 
-    fn mcp_call() -> Result<McpJson, Box<dyn Error>> {
+    //TODO: all opening files things load them at startup
+    async fn mcp_call(json_rpc_request: McpJson) -> Result<McpPayload, Box<dyn Error>> {
+        // for getting al
+        let mut file = File::open("data/mcp/mcp_tools_list.json").await?;
+
+        let content = &mut String::new();
+
+        file.read_to_string(content).await?;
+
+        let mut deserializer = serde_json::Deserializer::from_str(&content);
+        let deserializer = serde_stacker::Deserializer::new(&mut deserializer);
+        //TOD: parse MCP name
+
         todo!()
     }
 
     async fn mcp_list() -> Result<McpJson, Box<dyn Error>> {
         // grabbing the tools_list json
-        let mut file = File::open("data/tools_list.json").await?;
+        let mut file = File::open("data/mcp/tools_list.json").await?;
 
         let content = &mut String::new();
 
