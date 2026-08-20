@@ -7,8 +7,10 @@ use async_std::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+const MCP_INITIALIZE_RAW: &str = "initialize";
 const MCP_TOOLS_LIST_RAW: &str = "tools/list";
 const MCP_TOOLS_CALL_RAW: &str = "tools/call";
+const MCP_PROTOCOL_VERSION: &str = "2024-11-05";
 
 // stateless
 pub struct McpServer;
@@ -17,10 +19,22 @@ pub struct McpServer;
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct McpJson {
     jsonrpc: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     id: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     method: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     params: Option<MCPCallparams>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     result: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<McpJsonError>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct McpJsonError {
+    code: i32,
+    message: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -68,7 +82,11 @@ pub enum McpServerError {
 
 impl Display for McpServerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.to_string())
+        match self {
+            McpServerError::NotMethodSupply => write!(f, "no method provided in request"),
+            McpServerError::CouldntFullFilledResponse => write!(f, "unsupported method"),
+            McpServerError::CouldntGetCallArguments => write!(f, "unknown tool name"),
+        }
     }
 }
 
@@ -76,21 +94,85 @@ impl Error for McpServerError {}
 
 // wrapper
 impl McpServer {
-    pub async fn handle_response(payload: Value) -> Result<McpJson, Box<dyn Error>> {
-        let json_rpc_request = serde_json::from_value::<McpJson>(payload)?;
+    // returns None for JSON-RPC notifications (no "id"), since the spec
+    // forbids sending a response to those; Some(McpJson) otherwise
+    // (success or JSON-RPC error), which the caller writes back to the client
+    pub async fn handle_response(payload: Value) -> Option<McpJson> {
+        let is_notification = payload.get("id").is_none();
+        let id = payload.get("id").and_then(Value::as_u64).map(|v| v as u32);
 
-        if let None = json_rpc_request.method {
-            return Err(Box::new(McpServerError::NotMethodSupply));
-        }
+        let json_rpc_request = match serde_json::from_value::<McpJson>(payload) {
+            Ok(req) => req,
+            Err(err) => {
+                return (!is_notification)
+                    .then(|| McpServer::error_response(id, -32600, err.to_string()));
+            }
+        };
 
-        // the unwrap should be safe here
-        match json_rpc_request.method.as_ref().unwrap().as_str() {
+        let method = match json_rpc_request.method.as_deref() {
+            Some(method) => method,
+            None => {
+                return (!is_notification).then(|| {
+                    McpServer::error_response(id, -32600, "method not provided".to_string())
+                });
+            }
+        };
+
+        let result: Result<McpJson, Box<dyn Error>> = match method {
+            MCP_INITIALIZE_RAW => McpServer::mcp_initialize().await,
             MCP_TOOLS_CALL_RAW => McpServer::mcp_call(&json_rpc_request).await,
             MCP_TOOLS_LIST_RAW => McpServer::mcp_list().await,
-            _ => {
-                return Err(Box::new(McpServerError::CouldntFullFilledResponse));
-            }
+            _ => Err(Box::new(McpServerError::CouldntFullFilledResponse)),
+        };
+
+        if is_notification {
+            return None;
         }
+
+        Some(match result {
+            Ok(mut response) => {
+                response.id = id;
+                response
+            }
+            Err(err) => McpServer::error_response(id, McpServer::error_code(&err), err.to_string()),
+        })
+    }
+
+    fn error_code(err: &Box<dyn Error>) -> i32 {
+        match err.downcast_ref::<McpServerError>() {
+            Some(McpServerError::NotMethodSupply) => -32600,
+            Some(McpServerError::CouldntFullFilledResponse) => -32601,
+            Some(McpServerError::CouldntGetCallArguments) => -32602,
+            None => -32603,
+        }
+    }
+
+    pub fn error_response(id: Option<u32>, code: i32, message: String) -> McpJson {
+        McpJson {
+            jsonrpc: "2.0".to_string(),
+            id,
+            error: Some(McpJsonError { code, message }),
+            ..Default::default()
+        }
+    }
+
+    async fn mcp_initialize() -> Result<McpJson, Box<dyn Error>> {
+        let result = serde_json::json!({
+            "protocolVersion": MCP_PROTOCOL_VERSION,
+            "capabilities": {
+                "tools": {}
+            },
+            "serverInfo": {
+                "name": env!("CARGO_PKG_NAME"),
+                "version": env!("CARGO_PKG_VERSION")
+            }
+        });
+
+        Ok(McpJson {
+            jsonrpc: "2.0".to_string(),
+            result: Some(result),
+            ..Default::default()
+        })
     }
 
     //TODO: all opening files things load them at startup

@@ -93,6 +93,7 @@
               packages = with pkgs; [
                 cargo
                 bacon
+                #claude-code
                 rust-analyzer
                 clippy
                 rustfmt

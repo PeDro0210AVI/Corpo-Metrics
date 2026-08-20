@@ -27,7 +27,11 @@ pub enum HttpServerErrors {
 
 impl Display for HttpServerErrors {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.to_string())
+        match self {
+            HttpServerErrors::IncorrectContentTypeHeader => {
+                write!(f, "expected Content-Type: application/json")
+            }
+        }
     }
 }
 
@@ -83,8 +87,35 @@ impl HttpServer {
         }
 
         if let Ok(httparse::Status::Complete(_)) = req.parse(content.as_bytes()) {
+            // just post methods accepted
+            if !req.method.unwrap_or_default().eq_ignore_ascii_case("POST") {
+                let error_body = McpServer::error_response(
+                    None,
+                    -32600,
+                    "method not allowed, use POST".to_string(),
+                );
+                let response = HttpResponse::builder()
+                    .status(405)
+                    .header("Content-Type", "application/json")
+                    .header("Allow", "POST")
+                    .body(error_body)?;
+                HttpServer::send_response(&mut stream, &response).await?;
+                return Ok(());
+            }
+
+            // just for accepting json headers
             if !HttpServer::check_content_type_headers(req.headers) {
-                return Err(Box::new(HttpServerErrors::IncorrectContentTypeHeader));
+                let error_body = McpServer::error_response(
+                    None,
+                    -32600,
+                    HttpServerErrors::IncorrectContentTypeHeader.to_string(),
+                );
+                let response = HttpResponse::builder()
+                    .status(415)
+                    .header("Content-Type", "application/json")
+                    .body(error_body)?;
+                HttpServer::send_response(&mut stream, &response).await?;
+                return Ok(());
             }
 
             let content_length: usize = req
@@ -102,16 +133,15 @@ impl HttpServer {
             let body = HttpServer::parse_body_into_json(body_str)?;
 
             match McpServer::handle_response(body).await {
-                Ok(payload) => {
+                Some(payload) => {
                     let response = resp
                         .header("Content-Type", "application/json")
                         .body(payload)?;
                     HttpServer::send_response(&mut stream, &response).await?;
                 }
-                Err(err) => {
-                    println!("Error {:?}", err);
-                }
-            };
+                // JSON-RPC notification: spec forbids a response body
+                None => HttpServer::send_accepted_empty(&mut stream).await?,
+            }
         }
 
         Ok(())
@@ -120,8 +150,13 @@ impl HttpServer {
         for header in headers {
             // parsing in it cause we just searching for APPLICATION_JSON_RAW
             let string_val = str::from_utf8(header.value).unwrap_or_default();
-            if header.name == CONTENT_TYPE_RAW.to_string()
-                && string_val == APPLICATION_JSON_RAW.to_string()
+            if header.name.eq_ignore_ascii_case(CONTENT_TYPE_RAW)
+                && string_val
+                    .split(';')
+                    .next()
+                    .unwrap_or_default()
+                    .trim()
+                    .eq_ignore_ascii_case(APPLICATION_JSON_RAW)
             {
                 return true;
             }
@@ -143,6 +178,7 @@ impl HttpServer {
         let status = response.status();
         let headers = response.headers();
         let body = response.clone().into_body();
+        let body_bytes = serde_json::to_vec(&body)?;
 
         let mut response_bytes = String::new();
         response_bytes.push_str(&format!(
@@ -157,13 +193,21 @@ impl HttpServer {
             let header_value = value.to_str().unwrap_or("");
             response_bytes.push_str(&format!("{}: {}\r\n", header_name, header_value));
         }
+        // Required for HTTP/1.1 framing: without this, a client can't tell
+        // where the body ends short of the connection closing.
+        response_bytes.push_str(&format!("Content-Length: {}\r\n", body_bytes.len()));
         response_bytes.push_str("\r\n");
 
         stream.write_all(response_bytes.as_bytes()).await?;
-
-        let body_bytes = serde_json::to_vec(&body)?;
         stream.write_all(&body_bytes).await?;
 
+        Ok(())
+    }
+
+    async fn send_accepted_empty(stream: &mut TcpStream) -> Result<(), Box<dyn Error>> {
+        stream
+            .write_all(b"HTTP/1.1 202 Accepted\r\nContent-Length: 0\r\n\r\n")
+            .await?;
         Ok(())
     }
 }
