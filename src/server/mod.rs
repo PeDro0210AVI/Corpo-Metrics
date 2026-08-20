@@ -1,2 +1,2 @@
-mod op;
+pub(crate) mod op;
 pub mod primitives;

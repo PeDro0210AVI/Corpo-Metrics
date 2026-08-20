@@ -22,7 +22,13 @@
           (
             system:
             let
-              pkgs = nixpkgs.legacyPackages.${system};
+              pkgs = import nixpkgs {
+                inherit system;
+                config = {
+                  allowUnfree = true;
+                };
+
+              };
 
               buildInputs = with pkgs; [
                 pkg-config
@@ -93,11 +99,12 @@
               packages = with pkgs; [
                 cargo
                 bacon
-                #claude-code
                 rust-analyzer
                 clippy
                 rustfmt
                 taplo # lsp for cargo.toml
+
+                claude-code # the demon itself
               ];
 
             };

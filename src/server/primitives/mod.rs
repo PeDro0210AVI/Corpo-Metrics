@@ -1,11 +1,10 @@
 use std::{error::Error, fmt::Display};
 
-use async_std::{
-    fs::{File, OpenOptions},
-    io::ReadExt,
-};
+use async_std::{fs::File, io::ReadExt};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+
+use crate::server::op::{get_financial_status, get_sales_metrics, get_top_products};
 
 const MCP_INITIALIZE_RAW: &str = "initialize";
 const MCP_TOOLS_LIST_RAW: &str = "tools/list";
@@ -58,8 +57,8 @@ pub enum ContentType {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ContentText {
-    r#type: ContentType,
-    text: String,
+    pub r#type: ContentType,
+    pub text: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -69,8 +68,8 @@ pub struct McpToolListNames {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct McpPayload {
-    resultType: ResultType,
-    content: Vec<ContentText>,
+    pub resultType: ResultType,
+    pub content: Vec<ContentText>,
 }
 
 #[derive(Debug)]
@@ -185,17 +184,30 @@ impl McpServer {
 
         println!("param send: {}", mcp_params.name.as_ref().unwrap());
 
-        // ik is to exahustive, but still... meh
+        let args = mcp_params.arguments.as_ref();
+
         let result: Result<McpPayload, McpServerError> =
             match mcp_params.name.as_ref().unwrap().as_str() {
                 "get_sales_metrics" => {
-                    todo!()
+                    let period = args
+                        .and_then(|a| a["period"].as_str())
+                        .ok_or(McpServerError::CouldntGetCallArguments)?;
+                    let compare = args
+                        .and_then(|a| a["compare_to_previous"].as_bool())
+                        .unwrap_or(false);
+                    get_sales_metrics(period, compare).await
                 }
                 "get_top_products" => {
-                    todo!()
+                    let limit = args
+                        .and_then(|a| a["limit"].as_u64())
+                        .unwrap_or(5) as usize;
+                    get_top_products(limit).await
                 }
                 "get_financial_status" => {
-                    todo!()
+                    let category = args
+                        .and_then(|a| a["category"].as_str())
+                        .ok_or(McpServerError::CouldntGetCallArguments)?;
+                    get_financial_status(category).await
                 }
                 "get_customer_metrics" => {
                     todo!()
