@@ -84,10 +84,8 @@ impl McpServer {
         }
 
         // the unwrap should be safe here
-        match json_rpc_request.method.unwrap().as_str() {
-            MCP_TOOLS_CALL_RAW => {
-                todo!()
-            }
+        match json_rpc_request.method.as_ref().unwrap().as_str() {
+            MCP_TOOLS_CALL_RAW => McpServer::mcp_call(&json_rpc_request).await,
             MCP_TOOLS_LIST_RAW => McpServer::mcp_list().await,
             _ => {
                 return Err(Box::new(McpServerError::CouldntFullFilledResponse));
@@ -96,46 +94,50 @@ impl McpServer {
     }
 
     //TODO: all opening files things load them at startup
-    async fn mcp_call(json_rpc_request: McpJson) -> Result<McpJson, Box<dyn Error>> {
+    async fn mcp_call(json_rpc_request: &McpJson) -> Result<McpJson, Box<dyn Error>> {
         if let None = json_rpc_request.params {
             return Err(Box::new(McpServerError::CouldntFullFilledResponse));
         };
 
-        let mcp_params = json_rpc_request.params.unwrap();
+        let mcp_params = json_rpc_request.params.as_ref().unwrap();
 
-        let result: Result<McpPayload, McpServerError> = match mcp_params.name.unwrap().as_str() {
-            "get_sales_metrics" => {
-                todo!()
-            }
-            "get_top_products" => {
-                todo!()
-            }
-            "get_financial_status" => {
-                todo!()
-            }
-            "get_customer_metrics" => {
-                todo!()
-            }
-            "get_project_status" => {
-                todo!()
-            }
-            "get_team_metrics" => {
-                todo!()
-            }
-            "get_product_health" => {
-                todo!()
-            }
-            "generate_executive_summary" => {
-                todo!()
-            }
-            "get_anomalies" => {
-                todo!()
-            }
-            "get_inventory_levels" => {
-                todo!()
-            }
-            _ => Err(McpServerError::CouldntGetCallArguments),
-        };
+        println!("param send: {}", mcp_params.name.as_ref().unwrap());
+
+        // ik is to exahustive, but still... meh
+        let result: Result<McpPayload, McpServerError> =
+            match mcp_params.name.as_ref().unwrap().as_str() {
+                "get_sales_metrics" => {
+                    todo!()
+                }
+                "get_top_products" => {
+                    todo!()
+                }
+                "get_financial_status" => {
+                    todo!()
+                }
+                "get_customer_metrics" => {
+                    todo!()
+                }
+                "get_project_status" => {
+                    todo!()
+                }
+                "get_team_metrics" => {
+                    todo!()
+                }
+                "get_product_health" => {
+                    todo!()
+                }
+                "generate_executive_summary" => {
+                    todo!()
+                }
+                "get_anomalies" => {
+                    todo!()
+                }
+                "get_inventory_levels" => {
+                    todo!()
+                }
+                _ => Err(McpServerError::CouldntGetCallArguments),
+            };
 
         let result = Some(serde_json::to_value(result?)?);
 
