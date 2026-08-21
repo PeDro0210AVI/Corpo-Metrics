@@ -4,7 +4,11 @@ use async_std::{fs::File, io::ReadExt};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::server::op::{get_financial_status, get_sales_metrics, get_top_products};
+use crate::server::op::{
+    generate_executive_summary, get_anomalies, get_customer_metrics, get_financial_status,
+    get_inventory_levels, get_product_health, get_project_status, get_sales_metrics,
+    get_team_metrics, get_top_products,
+};
 
 const MCP_INITIALIZE_RAW: &str = "initialize";
 const MCP_TOOLS_LIST_RAW: &str = "tools/list";
@@ -210,25 +214,46 @@ impl McpServer {
                     get_financial_status(category).await
                 }
                 "get_customer_metrics" => {
-                    todo!()
+                    let metric = args
+                        .and_then(|a| a["metric"].as_str())
+                        .ok_or(McpServerError::CouldntGetCallArguments)?;
+                    get_customer_metrics(metric).await
                 }
                 "get_project_status" => {
-                    todo!()
+                    let department = args.and_then(|a| a["department"].as_str());
+                    get_project_status(department).await
                 }
                 "get_team_metrics" => {
-                    todo!()
+                    let metric = args
+                        .and_then(|a| a["metric"].as_str())
+                        .ok_or(McpServerError::CouldntGetCallArguments)?;
+                    get_team_metrics(metric).await
                 }
                 "get_product_health" => {
-                    todo!()
+                    let metric = args
+                        .and_then(|a| a["metric"].as_str())
+                        .ok_or(McpServerError::CouldntGetCallArguments)?;
+                    get_product_health(metric).await
                 }
                 "generate_executive_summary" => {
-                    todo!()
+                    let departments: Option<Vec<String>> = args.and_then(|a| {
+                        a["departments"].as_array().map(|arr| {
+                            arr.iter()
+                                .filter_map(|v| v.as_str().map(String::from))
+                                .collect()
+                        })
+                    });
+                    generate_executive_summary(departments.as_deref()).await
                 }
                 "get_anomalies" => {
-                    todo!()
+                    let threshold = args
+                        .and_then(|a| a["threshold"].as_f64())
+                        .unwrap_or(20.0);
+                    get_anomalies(threshold).await
                 }
                 "get_inventory_levels" => {
-                    todo!()
+                    let category = args.and_then(|a| a["category"].as_str());
+                    get_inventory_levels(category).await
                 }
                 _ => Err(McpServerError::CouldntGetCallArguments),
             };
