@@ -77,7 +77,7 @@ pub async fn generate_executive_summary(
 
     if wants("Proyectos") || wants("Projects") {
         let data = read_json("data/dummy/projects.json").await?;
-        let projects = data["projects"].as_array().unwrap_or(&vec![]);
+        let projects = data["projects"].as_array().unwrap_or(&vec![]).clone();
         let blocked = projects
             .iter()
             .filter(|p| p["status"].as_str() == Some("blocked"))

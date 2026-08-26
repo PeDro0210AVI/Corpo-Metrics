@@ -1,0 +1,9 @@
+services:
+  mcp:
+    build: .
+    ports:
+      - "${PORT}:${PORT}"
+    args:
+      APP_NAME: "corpo_metrics"
+    env_file:
+      - .env
