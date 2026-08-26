@@ -3,8 +3,5 @@ services:
     image: corpo_metrics_mcp:latest
     ports:
       - "${PORT}:${PORT}"
-    args:
-      APP_NAME: "corpo_metrics"
-      PORT: "${PORT}"
     env_file:
       - .env
