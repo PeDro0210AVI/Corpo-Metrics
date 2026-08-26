@@ -34,8 +34,8 @@ jobs:
       - name: save image
         run: |
           mkdir images
-          docker save corpo-metrics_mcp:latest > ./images/images.tar
-      
+          docker save corpo-metrics_mcp:latest > ./images/images.tar 
+
       - name: copy tars to VPS
         uses: appleboy/scp-action@master
         with:
