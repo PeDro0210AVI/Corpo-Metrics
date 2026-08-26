@@ -1,6 +1,6 @@
 services:
   mcp:
-    image: corpo_metrics_mcp:latest
+    image: corpo-metrics_mcp:latest
     ports:
       - "${PORT}:${PORT}"
     env_file:
