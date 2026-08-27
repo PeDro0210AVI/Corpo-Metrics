@@ -24,6 +24,6 @@ FROM ubuntu:latest AS final
 COPY data/ data/
 COPY --from=build /bin/server /bin/
 
-EXPOSE $PORT
+EXPOSE 8080
 
 CMD ["/bin/server"]
